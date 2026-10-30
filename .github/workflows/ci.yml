@@ -1,0 +1,38 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_C_COMPILER=${{ matrix.cc }}
+      - name: Build
+        run: cmake --build build -j
+      - name: C tests
+        run: ctest --test-dir build --output-on-failure
+      - name: NumPy cross-check
+        run: |
+          pip install numpy
+          python3 python/validate.py build/libdsp.so
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ASan + UBSan build and test
+        run: |
+          cmake -S . -B build-san -DDSP_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build-san -j
+          ctest --test-dir build-san --output-on-failure
+
+  memcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - run: scripts/memcheck.sh
