@@ -1,0 +1,111 @@
+/*
+ * Run ONE FFT implementation many times, so that `perf stat` / `perf record`
+ * measure that implementation alone (bench_fft mixes all steps in one process).
+ *
+ *   ./build/fft_run <which> <n> <iters>
+ *
+ *   which : "ref" for the scalar reference, or a step name / prefix:
+ *           s1_gather, or just s1
+ *   n     : FFT size, power of two
+ *   iters : number of FFTs to run (e.g. 1000, 100000)
+ *
+ * Examples:
+ *   ./build/fft_run ref 1024 100000
+ *   ./build/fft_run s1  1024 100000
+ *   taskset -c 2 perf stat -e cycles,instructions,cache-misses ./build/fft_run s2 1024 100000
+ *
+ * The step is first checked against the reference; a wrong step is refused,
+ * so you never profile broken code. Each iteration copies the input first
+ * (the transform is in place), the same as bench_fft. 1000 FFTs of n=1024
+ * take only ~30 ms, which is short for perf: use 100000 or more for stable
+ * counters. A short warm-up run is done before timing starts.
+ */
+#define _POSIX_C_SOURCE 200809L
+#include "dsp.h"
+#include "timing.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static uint32_t rng = 12345u;
+static uint32_t rnd(void) { rng = rng * 1664525u + 1013904223u; return rng >> 8; }
+
+static fft_fn find_step(const char *which, const char **full_name)
+{
+    if (strcmp(which, "ref") == 0) { *full_name = "ref (scalar)"; return fft_f32_ref; }
+    const size_t len = strlen(which);
+    for (int s = 0; s < fft_avx2_num_steps(); s++) {
+        const char *name = fft_avx2_step_name(s);
+        if (strcmp(name, which) == 0 || (strncmp(name, which, len) == 0 && name[len] == '_')) {
+            *full_name = name;
+            return fft_avx2_step_fn(s);
+        }
+    }
+    return NULL;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 4) {
+        fprintf(stderr, "usage: %s <ref|step> <n> <iters>\n", argv[0]);
+        fprintf(stderr, "steps:");
+        for (int s = 0; s < fft_avx2_num_steps(); s++) fprintf(stderr, " %s", fft_avx2_step_name(s));
+        fprintf(stderr, "\n");
+        return 2;
+    }
+    const int n = atoi(argv[2]);
+    const long iters = atol(argv[3]);
+    if (n < 2 || (n & (n - 1)) != 0 || iters < 1) {
+        fprintf(stderr, "n must be a power of two >= 2 and iters >= 1\n");
+        return 2;
+    }
+    if (!dsp_cpu_has_avx2()) {
+        fprintf(stderr, "no AVX2+FMA on this machine\n");
+        return 2;
+    }
+
+    const char *name = NULL;
+    fft_fn fn = find_step(argv[1], &name);
+    if (!fn) {
+        fprintf(stderr, "unknown step '%s'\n", argv[1]);
+        return 2;
+    }
+
+    const size_t bytes = sizeof(float) * 2 * (size_t)n;
+    fft_plan *p = fft_plan_create(n);
+    float *src = malloc(bytes), *d = malloc(bytes), *ref_out = malloc(bytes);
+    for (int i = 0; i < 2 * n; i++) src[i] = (float)(rnd() & 0xffff) / 32768.0f - 1.0f;
+
+    memcpy(ref_out, src, bytes);
+    fft_f32_ref(p, ref_out);
+    memcpy(d, src, bytes);
+    fn(p, d);
+    double num = 0, den = 0;
+    for (int i = 0; i < 2 * n; i++) {
+        const double e = (double)d[i] - (double)ref_out[i];
+        num += e * e;
+        den += (double)ref_out[i] * (double)ref_out[i];
+    }
+    if (sqrt(num / den) > 1e-4) {
+        fprintf(stderr, "%s gives WRONG results (rel err %.2e); not running it\n", name, sqrt(num / den));
+        return 1;
+    }
+
+    for (long i = 0; i < 1000 && i < iters; i++) { memcpy(d, src, bytes); fn(p, d); }  /* warm-up */
+
+    float sink = 0.0f;
+    const double t0 = now_ns();
+    for (long i = 0; i < iters; i++) {
+        memcpy(d, src, bytes);
+        fn(p, d);
+        sink += d[1];            /* keeps the work observable */
+    }
+    const double dt = now_ns() - t0;
+
+    printf("%s  n=%d  iters=%ld  total %.3f ms  %.2f ns/FFT (includes one memcpy)  [checksum %g]\n",
+           name, n, iters, dt / 1e6, dt / (double)iters, (double)sink);
+    free(src); free(d); free(ref_out);
+    fft_plan_destroy(p);
+    return 0;
+}

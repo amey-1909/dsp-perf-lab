@@ -63,5 +63,11 @@ target_link_libraries(bench_sad PRIVATE dsp)
 add_executable(bench_fft bench/bench_fft.c)
 target_link_libraries(bench_fft PRIVATE dsp)
 
+add_executable(fft_run bench/fft_run.c)
+target_link_libraries(fft_run PRIVATE dsp)
+
+add_executable(kernel_run bench/kernel_run.c)
+target_link_libraries(kernel_run PRIVATE dsp)
+
 enable_testing()
 add_test(NAME kernels COMMAND test_kernels)

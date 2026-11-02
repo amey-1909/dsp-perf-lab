@@ -95,6 +95,21 @@ git add -A && git commit -m "FFT step 2: <what changed and the speedup>"
 Add a row to the table above for each step, with the measured `vs prev` figure.
 `scripts/fft_check.sh 1024 8192` benchmarks chosen sizes.
 
+**Profiling one step.** `./build/fft_run <ref|s1|s2...> <n> <iters>` runs a single
+implementation many times (after checking it against the reference), so
+`perf stat` counters belong to that step alone:
+
+```bash
+taskset -c 2 perf stat -e cycles,instructions,cache-misses ./build/fft_run s1 1024 100000
+```
+
+Use 100000 or more iterations; 1000 FFTs take only ~10-30 ms and give noisy figures.
+
+**IPC for FIR / GEMM / SAD.** `scripts/perf_kernels.sh [fir|gemm|sad|sadx4 ...]` runs each
+variant (ref, autovec, avx2) alone under `perf stat` and prints ns, instructions and cycles per
+unit of work plus IPC. Needs `sudo sysctl kernel.perf_event_paranoid=1`. Read *instructions per
+unit* first: a SIMD kernel often has lower IPC than scalar and is still much faster.
+
 **Noise floor.** `bench_fft` times all steps in interleaved rounds to remove
 drift, but small differences are still noise. On a shared cloud VM, two
 byte-identical steps read 0.97x to 1.00x "vs prev" (about +/-3%), so treat

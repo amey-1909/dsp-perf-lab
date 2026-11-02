@@ -1,4 +1,4 @@
-/* Step 1: baseline AVX2 FFT (gather loads, gather twiddles, scalar stores) */
+/* Step 2: replace the scalar store loop with vector stores (copied from step 1; change ONE thing) */
 #include "dsp.h"
 #include "fft_internal.h"
 #include "fft_steps.h"
@@ -89,3 +89,4 @@ void fft_f32_avx2_s1(const fft_plan *p, float *d)
          }
     }
 }
+
