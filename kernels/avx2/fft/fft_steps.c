@@ -14,6 +14,7 @@ typedef struct {
 static const fft_step steps[] = {
     {"s1_gather", "gather loads and twiddles, scalar stores (baseline)", fft_f32_avx2_s1},
     {"s2_vector_store", "replace the scalar store loop with vector stores", fft_f32_avx2_s2},
+    {"s3_twiddle_table", "contiguous per-stage twiddle table, no gathers", fft_f32_avx2_s3},
     /* NEW STEPS GO ABOVE THIS LINE */
 };
 

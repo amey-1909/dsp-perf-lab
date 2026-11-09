@@ -15,9 +15,10 @@ fft_plan *fft_plan_create(int n)
     if (!p) return NULL;
     p->n = n;
     p->rev = (int *)malloc((size_t)n * sizeof(int));
-    p->tw = (float *)malloc((size_t)n * sizeof(float)); /* n/2 complex */
-    if (!p->rev || !p->tw) { fft_plan_destroy(p); return NULL; }
-
+    p->tw = (float *)malloc((size_t)n * sizeof(float)); /* n/2 complex */    
+    p->tw_re = (float *)malloc((size_t)n * sizeof(float));
+    p->tw_im = (float *)malloc((size_t)n * sizeof(float));
+    if (!p->rev || !p->tw || !p->tw_re || !p->tw_im) { fft_plan_destroy(p); return NULL; }
     int bits = 0;
     while ((1 << bits) < n) bits++;
     for (int i = 0; i < n; i++) {
@@ -31,14 +32,26 @@ fft_plan *fft_plan_create(int n)
         p->tw[2 * k]     = (float)cos(a);
         p->tw[2 * k + 1] = (float)-sin(a);
     }
+        /* per-stage tables: stage with this `half` needs twiddle j at tw[2*j*step],
+     * step = n / (2*half). Same formula as above, so the values are identical. */
+    for (int half = 1; half < n; half <<= 1) {
+        const int step = n / (2 * half);
+        for (int j = 0; j < half; j++) {
+            double a = 2.0 * DSP_PI * (double)(j * step) / (double)n;
+            p->tw_re[half + j] = (float)cos(a);
+            p->tw_im[half + j] = (float)-sin(a);
+        }
+    }
     return p;
 }
 
 void fft_plan_destroy(fft_plan *p)
-{
+{   
     if (!p) return;
     free(p->rev);
     free(p->tw);
+    free(p->tw_re);
+    free(p->tw_im);
     free(p);
 }
 
