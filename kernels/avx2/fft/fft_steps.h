@@ -8,6 +8,7 @@
 void fft_f32_avx2_s1(const fft_plan *p, float *d);
 void fft_f32_avx2_s2(const fft_plan *p, float *d);
 void fft_f32_avx2_s3(const fft_plan *p, float *d);
+void fft_f32_avx2_s4(const fft_plan *p, float *d);
 /* NEW PROTOTYPES GO ABOVE THIS LINE */
 
 #endif
