@@ -71,3 +71,14 @@ target_link_libraries(kernel_run PRIVATE dsp)
 
 enable_testing()
 add_test(NAME kernels COMMAND test_kernels)
+
+# Optional: comparison with FFTW (single precision). sudo apt install libfftw3-dev
+find_path(FFTW3_INCLUDE_DIR fftw3.h)
+find_library(FFTW3F_LIBRARY fftw3f)
+if(FFTW3_INCLUDE_DIR AND FFTW3F_LIBRARY)
+  add_executable(bench_fftw bench/bench_fftw.c)
+  target_include_directories(bench_fftw PRIVATE ${FFTW3_INCLUDE_DIR})
+  target_link_libraries(bench_fftw PRIVATE dsp ${FFTW3F_LIBRARY} m)
+else()
+  message(STATUS "FFTW3f not found: bench_fftw will not be built (sudo apt install libfftw3-dev)")
+endif()

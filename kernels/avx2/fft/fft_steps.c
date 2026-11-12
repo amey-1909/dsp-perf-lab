@@ -16,6 +16,7 @@ static const fft_step steps[] = {
     {"s2_vector_store", "replace the scalar store loop with vector stores", fft_f32_avx2_s2},
     {"s3_twiddle_table", "contiguous per-stage twiddle table, no gathers", fft_f32_avx2_s3},
     {"s4_direct8", "first three stages as one direct 8x8 DFT per group", fft_f32_avx2_s4},
+    {"s5_blocked", "cache-block the first 10 stages in 1024-point blocks", fft_f32_avx2_s5},
     /* NEW STEPS GO ABOVE THIS LINE */
 };
 

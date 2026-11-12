@@ -266,7 +266,7 @@ int main(void)
     test_requant(0, 0.5);
     test_requant(14, 0.99);
 
-    for (int n = 2; n <= 2048; n <<= 1) test_fft(n, has_avx2);
+    for (int n = 2; n <= 16384; n <<= 1) test_fft(n, has_avx2);
 
     test_sad(has_avx2);
 
