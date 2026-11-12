@@ -1,4 +1,4 @@
-/* Step 5: cache blocking: the first 10 stages (len <= BLOCK) run block by block, so a block stays in L1 */
+/* Step 5: cache blocking: the first 12 stages (len <= BLOCK = 4096) run block by block, so a block stays in L1 */
 #include "dsp.h"
 #include "fft_internal.h"
 #include "fft_steps.h"
@@ -67,7 +67,7 @@ static inline void dft8_direct(float *g)
 
 /* One radix-2 stage (half >= 8) over `count` complex values starting at d.
  * j chunk outside, blocks inside: twiddles are loaded once per chunk. */
-static inline __attribute__((always_inline)) vector_stage(const fft_plan *p, float *d, int count, int len)
+static inline __attribute__((always_inline)) void vector_stage(const fft_plan *p, float *d, int count, int len)
 {
     const int half = len >> 1;
     for (int j = 0; j < half; j += 8) {
@@ -90,7 +90,7 @@ static inline __attribute__((always_inline)) vector_stage(const fft_plan *p, flo
 }
 
 /* Stages len = 2 .. m on one block of m complex values (8 <= m <= BLOCK, power of two) */
-static inline __attribute__((always_inline)) fft_block(const fft_plan *p, float *blk, int m)
+static inline __attribute__((always_inline)) void fft_block(const fft_plan *p, float *blk, int m)
 {
     for (int i = 0; i < m; i += 8)
         dft8_direct(blk + 2 * i);                  /* half = 1, 2, 4 */

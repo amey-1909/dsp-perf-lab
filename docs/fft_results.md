@@ -11,21 +11,18 @@ precision, same conditions) it reaches 31-44% of FFTW's speed, i.e. FFTW is 2.3-
 
 ## Test machine
 
-<!-- TODO: fill in before publishing. Run:
-       lscpu | grep -E "Model name|L1d|L2|L3"
-       gcc --version | head -1
-     and note the compiler flags from CMakeLists.txt. -->
-
 | | |
 |---|---|
-| CPU | TODO (model name from `lscpu`) |
-| Caches | TODO (L1d / L2 / L3 from `lscpu`) |
-| Compiler | TODO (`gcc --version`), flags: TODO |
+| CPU | Intel Core i7-10510U @ 1.80 GHz (Comet Lake, Skylake-derived core; 4 cores / 8 threads, AVX2 + FMA, no AVX-512) |
+| Caches | L1d 32 KB per core, L2 256 KB per core, L3 8 MB shared (`lscpu` totals 128 KiB / 1 MiB / 8 MiB divided by 4 cores) |
+| Compiler | GCC 9.4.0 (Ubuntu 20.04), `-O3 -g`; the AVX2 sources are compiled with `-mavx2 -mfma` |
 | Method | pinned with `taskset -c 2`; `bench_fft` times all steps in interleaved rounds; run-to-run noise about ±3% |
 | Date | 2026-11-12 |
 
-A 4096-point block is 32 KB of data; the sizes above that exceed L1
-and are where memory behaviour starts to matter.
+Working-set sizes on this machine (complex float = 8 bytes): n = 1024 is 8 KB of data and fits
+in L1; n = 4096 is 32 KB, which already fills L1d once the twiddle tables are added; n = 65536
+is 512 KB of data (plus about the same again in twiddle tables), which exceeds the 256 KB L2
+and lives in L3.
 
 ## The ladder
 
@@ -68,7 +65,7 @@ start-up work cancels out.
 | s4 | 45,932 | 16,303 | 2.82 |
 | s5 | 45,956 | 16,100 | 2.85 |
 
-**n = 65536** (512 KB of data, exceeds L1)
+**n = 65536** (512 KB of data: exceeds L1 and the 256 KB L2, so it lives in L3)
 
 | step | instructions | cycles | IPC | L1 load misses |
 |---|--:|--:|--:|--:|
@@ -148,8 +145,9 @@ shrank, memory latency that used to hide behind it became visible.
 **s5: blocking recovers the stalls.** The first twelve stages (len up to 4096, half up to 2048) touch only one
 block at a time, so it stays in cache. At n = 65536: L1 misses -46% (363k to 196k per FFT),
 IPC 1.17 to 1.66, backend bound 65.6% to 54.4%, 1.32x faster than s4. Below the block size
-s5 equals s4. `BLOCK = 4096` beat `1024` on this CPU (1.32x vs 1.19x at n = 65536), most
-likely because L2 is fast enough that fewer full sweeps outweigh spilling L1.
+s5 equals s4. `BLOCK = 4096` beat `1024` on this CPU (1.32x vs 1.19x at n = 65536). A 4096-point block is
+32 KB of data plus about 32 KB of twiddles, which spills L1d (32 KB) but fits easily in the
+256 KB L2; most likely the saving from fewer full sweeps outweighs the extra L1 misses.
 
 ## Things that went wrong, and what they taught
 
@@ -203,5 +201,5 @@ sudo perf stat -a --topdown taskset -c 2 ./build/fft_run s5 65536 5000   # topdo
 ## Limitations
 
 One machine, one compiler, single core. Differences under about 3% are noise. Topdown on this
-CPU only reports level 1, so the backend-bound share cannot be split into memory-bound and
+Skylake-derived core only reports level 1, so the backend-bound share cannot be split into memory-bound and
 core-bound.
