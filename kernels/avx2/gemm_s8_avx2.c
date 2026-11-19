@@ -44,7 +44,33 @@ static inline __m256i ld_s8_to_s16(const int8_t *p)
 void gemm_s8_avx2(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K)
 {
     const int K16 = K & ~15;
+    
+    /* size_t a_count = (size_t)M * K;
+    size_t b_count = (size_t)N * K;
+    
+    size_t a_bytes = (a_count * sizeof(int16_t) + 31) & ~(size_t)31;
+    size_t b_bytes = (b_count * sizeof(int16_t) + 31) & ~(size_t)31;
+    
+    int16_t *A16 = aligned_alloc(32, a_bytes);
+    int16_t *B16 = aligned_alloc(32, b_bytes);
+    
+    if (!A16 || !B16) {
+       free(A16);
+       free(B16);
+       return;
+    }
+    
+    for (size_t t = 0; t + 16 <= a_count; t += 16) {
+    __m128i v = _mm_loadu_si128((const __m128i *)(A + t));
+    __m256i w = _mm256_cvtepi8_epi16(v);
+    _mm256_storeu_si256((__m256i *)(A16 + t), w);
+   }
 
+   for (size_t t = 0; t + 16 <= b_count; t += 16) {
+    __m128i v = _mm_loadu_si128((const __m128i *)(Bt + t));
+    __m256i w = _mm256_cvtepi8_epi16(v);
+    _mm256_storeu_si256((__m256i *)(B16 + t), w);
+   } */
     for (int i = 0; i < M; i++) {
         const int8_t *a = A + (size_t)i * K;
         int32_t *c = C + (size_t)i * N;
@@ -59,14 +85,20 @@ void gemm_s8_avx2(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, i
             __m256i c1 = _mm256_setzero_si256();
             __m256i c2 = _mm256_setzero_si256();
             __m256i c3 = _mm256_setzero_si256();
-
+            
             for (int k = 0; k < K16; k += 16) {
-                MCA_BEGIN(gemm_inner);
+                MCA_BEGIN(gemm_inner); 
                 __m256i av = ld_s8_to_s16(a + k);
                 c0 = _mm256_add_epi32(c0, _mm256_madd_epi16(av, ld_s8_to_s16(b0 + k)));
                 c1 = _mm256_add_epi32(c1, _mm256_madd_epi16(av, ld_s8_to_s16(b1 + k)));
                 c2 = _mm256_add_epi32(c2, _mm256_madd_epi16(av, ld_s8_to_s16(b2 + k)));
                 c3 = _mm256_add_epi32(c3, _mm256_madd_epi16(av, ld_s8_to_s16(b3 + k)));
+                /* __m256i av = _mm256_loadu_si256((const __m256i*)(A16 + k+(size_t)i*K));
+                c0 = _mm256_add_epi32(c0, _mm256_madd_epi16(av, _mm256_loadu_si256((const __m256i*)(B16 + k+(size_t)j*K))));
+                c1 = _mm256_add_epi32(c1, _mm256_madd_epi16(av, _mm256_loadu_si256((const __m256i*)(B16 + k+(size_t)(j+1)*K))));
+                c2 = _mm256_add_epi32(c2, _mm256_madd_epi16(av, _mm256_loadu_si256((const __m256i*)(B16 + k+(size_t)(j+2)*K))));
+                c3 = _mm256_add_epi32(c3, _mm256_madd_epi16(av, _mm256_loadu_si256((const __m256i*)(B16 + k+(size_t)(j+3)*K))));
+ */
                 MCA_END(gemm_inner);
             }
 
@@ -94,4 +126,6 @@ void gemm_s8_avx2(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, i
             c[j] = s;
         }
     }
+    /* free(A16);
+    free(B16); */
 }

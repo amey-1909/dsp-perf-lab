@@ -38,6 +38,10 @@ for name in ("ref", "autovec", "avx2"):
 for name in ("ref", "autovec", "avx2"):
     getattr(lib, f"fir_f32_{name}").argtypes = [f32, f32, f32, i, i]
     getattr(lib, f"gemm_s8_{name}").argtypes = [s8, s8, s32, i, i, i]
+lib.gemm_avx2_num_steps.restype = i
+lib.gemm_avx2_step_name.restype = ctypes.c_char_p
+lib.gemm_avx2_step_name.argtypes = [i]
+lib.gemm_avx2_step_run.argtypes = [i, s8, s8, s32, i, i, i]
 
 has_avx2 = bool(lib.dsp_cpu_has_avx2())
 variants = ["ref"] + (["autovec", "avx2"] if has_avx2 else [])
@@ -73,6 +77,11 @@ for M, N, K in [(17, 13, 33), (64, 64, 64), (128, 96, 257)]:
         C = np.empty((M, N), np.int32)
         getattr(lib, f"gemm_s8_{v}")(A, Bt, C, M, N, K)
         report(np.array_equal(C, gold), f"gemm {v:8s} {M}x{N}x{K} bit-exact")
+    for st in range(lib.gemm_avx2_num_steps() if has_avx2 else 0):
+        C = np.empty((M, N), np.int32)
+        lib.gemm_avx2_step_run(st, A, Bt, C, M, N, K)
+        nm = lib.gemm_avx2_step_name(st).decode()
+        report(np.array_equal(C, gold), f"gemm {nm:24s} {M}x{N}x{K} bit-exact")
 
 # ---- SAD vs NumPy abs-diff (must be exact) ------------------------------------
 S = 96

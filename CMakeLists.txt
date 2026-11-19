@@ -32,13 +32,16 @@ set(AUTOVEC_SRCS
   kernels/autovec/sad_u8_autovec.c)
 set(AVX2_SRCS
   kernels/avx2/fir_f32_avx2.c
-  kernels/avx2/gemm_s8_avx2.c
   kernels/avx2/sad_u8_avx2.c)
 
 # FFT step ladder: every kernels/avx2/fft/*.c is picked up automatically, so a
 # new step needs no CMake edit.
 file(GLOB FFT_STEP_SRCS CONFIGURE_DEPENDS kernels/avx2/fft/*.c)
 list(APPEND AVX2_SRCS ${FFT_STEP_SRCS})
+
+# GEMM step ladder: same idea, kernels/avx2/gemm/*.c (gemm_s8_avx2() runs the last step).
+file(GLOB GEMM_STEP_SRCS CONFIGURE_DEPENDS kernels/avx2/gemm/*.c)
+list(APPEND AVX2_SRCS ${GEMM_STEP_SRCS})
 
 add_library(dsp SHARED ${REF_SRCS} ${AUTOVEC_SRCS} ${AVX2_SRCS} src/cpu.c)
 target_include_directories(dsp PUBLIC include PRIVATE src)
@@ -68,6 +71,12 @@ target_link_libraries(fft_run PRIVATE dsp)
 
 add_executable(kernel_run bench/kernel_run.c)
 target_link_libraries(kernel_run PRIVATE dsp)
+
+add_executable(bench_gemm bench/bench_gemm.c)
+target_link_libraries(bench_gemm PRIVATE dsp)
+
+add_executable(gemm_run bench/gemm_run.c)
+target_link_libraries(gemm_run PRIVATE dsp)
 
 enable_testing()
 add_test(NAME kernels COMMAND test_kernels)

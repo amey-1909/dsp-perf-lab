@@ -110,6 +110,22 @@ static void test_gemm(int M, int N, int K, int has_avx2)
         CHECK(bad_av == 0, "gemm autovec %dx%dx%d mismatches=%d", M, N, K, bad_av);
         CHECK(bad_x2 == 0, "gemm avx2 %dx%dx%d mismatches=%d", M, N, K, bad_x2);
     }
+    /* every AVX2 ladder step must be bit-exact; C is pre-filled with a sentinel and
+     * surrounded by guard words so out-of-bounds writes are caught too */
+    if (has_avx2) {
+        const size_t cn = (size_t)M * N, guard = 64;
+        int32_t *buf = malloc(sizeof(int32_t) * (cn + 2 * guard));
+        for (int st = 0; st < gemm_avx2_num_steps(); st++) {
+            for (size_t i = 0; i < cn + 2 * guard; i++) buf[i] = 0x5a5a5a5a;
+            gemm_avx2_step_run(st, A, Bt, buf + guard, M, N, K);
+            int bad = 0, oob = 0;
+            for (size_t i = 0; i < cn; i++) bad += (buf[guard + i] != C0[i]);
+            for (size_t i = 0; i < guard; i++) oob += (buf[i] != 0x5a5a5a5a) + (buf[guard + cn + i] != 0x5a5a5a5a);
+            CHECK(bad == 0, "gemm step %s %dx%dx%d mismatches=%d", gemm_avx2_step_name(st), M, N, K, bad);
+            CHECK(oob == 0, "gemm step %s %dx%dx%d wrote out of bounds (%d words)", gemm_avx2_step_name(st), M, N, K, oob);
+        }
+        free(buf);
+    }
     free(A); free(B); free(Bt); free(C0); free(C1); free(C2);
 }
 
@@ -258,7 +274,7 @@ int main(void)
             test_fir(fir_n[a], fir_t[b], has_avx2);
 
     const int g[][3] = {{1, 1, 1}, {5, 7, 19}, {17, 13, 33}, {4, 4, 16},
-                        {64, 64, 64}, {33, 50, 100}, {8, 9, 4095}};
+                        {64, 64, 64}, {33, 50, 100}, {8, 9, 4095}, {3, 5, 15}, {2, 3, 17}, {7, 1, 31}, {9, 9, 9}, {16, 16, 16}, {15, 17, 48}};
     for (size_t i = 0; i < sizeof g / sizeof *g; i++)
         test_gemm(g[i][0], g[i][1], g[i][2], has_avx2);
 

@@ -37,7 +37,17 @@ void fir_f32_avx2(const float *x, const float *h, float *y, int n, int taps);
  */
 void gemm_s8_ref(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
 void gemm_s8_autovec(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
+/* gemm_s8_avx2 runs the LAST step of the AVX2 ladder (kernels/avx2/gemm/). */
 void gemm_s8_avx2(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
+
+/* AVX2 GEMM step ladder: one optimization per step, each in its own file. Step i is
+ * 0-based here; gemm_avx2_step_name(0) is "s1_...". Every step must be bit-exact. */
+typedef void (*gemm_fn)(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
+int         gemm_avx2_num_steps(void);
+const char *gemm_avx2_step_name(int i);
+const char *gemm_avx2_step_desc(int i);
+gemm_fn     gemm_avx2_step_fn(int i);
+void        gemm_avx2_step_run(int i, const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
 
 /* ------------------------------------------------------- requantization --
  * gemmlowp / TFLite-style: out = clamp_s8( RDIVPOT( SRDHM(acc, mult), shift ) + zp )
