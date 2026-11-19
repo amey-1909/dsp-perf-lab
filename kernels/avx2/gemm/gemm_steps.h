@@ -7,6 +7,8 @@
 
 void gemm_s8_avx2_s1(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
 void gemm_s8_avx2_s2(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
+void gemm_s8_avx2_s3(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
+void gemm_s8_avx2_s4(const int8_t *A, const int8_t *Bt, int32_t *C, int M, int N, int K);
 /* NEW PROTOTYPES GO ABOVE THIS LINE */
 
 #endif

@@ -15,6 +15,8 @@ typedef struct {
 static const gemm_step steps[] = {
     {"s1_widen_each_time", "1 row x 4 columns, sign-extend operands in the inner loop (baseline)", gemm_s8_avx2_s1},
     {"s2_tile2x4", "2 rows x 4 columns register tile", gemm_s8_avx2_s2},
+    {"s3_prepack16", "Bt widened to int16 once up front; inner loop loads B as int16", gemm_s8_avx2_s3},
+    {"s4_block_l2", "column blocking: widen a chunk of Bt into a small L2-resident int16 buffer, reuse it for all rows", gemm_s8_avx2_s4},
     /* NEW STEPS GO ABOVE THIS LINE */
 };
 
