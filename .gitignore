@@ -7,3 +7,8 @@ __pycache__/
 *.gcno
 Testing/
 .~lock.*
+perf.data
+perf.data.old
+*.asm
+*.rej
+*.orig

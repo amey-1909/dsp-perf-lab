@@ -93,8 +93,7 @@ int main(void)
 
     /* ---- int8 GEMM: 2*M*N*K ops --------------------------------------- */
     {
-        const int shapes[][3] = {{128, 128, 256}, {256, 256, 256}, {64, 512, 512}};
-        header("GOP/s");
+        const int shapes[][3] = {{128, 128, 256}, {256, 256, 256}, {64, 512, 512}, {1024, 1024, 1024}};        header("GOP/s");
         for (size_t si = 0; si < sizeof shapes / sizeof *shapes; si++) {
             const int M = shapes[si][0], N = shapes[si][1], K = shapes[si][2];
             int8_t *A = malloc((size_t)M * K), *Bt = malloc((size_t)N * K);
